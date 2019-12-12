@@ -43,12 +43,16 @@ enum BusPacketType
 {
 	READ,
 	READ_P,
+	READ_FOUR,
+	READ_FOUR_P,
 	WRITE,
 	WRITE_P,
+	WRITE_UPDATE,
 	ACTIVATE,
 	PRECHARGE,
 	REFRESH,
-	DATA
+	DATA,
+	DATA_GRAD
 };
 
 class BusPacket
@@ -59,14 +63,22 @@ public:
 	//Fields
 	BusPacketType busPacketType;
 	unsigned column;
+	unsigned column2;
 	unsigned row;
+	unsigned row2;
 	unsigned bank;
+	unsigned bank2;
 	unsigned rank;
+	unsigned rank2;
 	uint64_t physicalAddress;
+	uint64_t physicalAddress2;
 	void *data;
 
 	//Functions
 	BusPacket(BusPacketType packtype, uint64_t physicalAddr, unsigned col, unsigned rw, unsigned r, unsigned b, void *dat, ostream &dramsim_log_);
+	BusPacket(BusPacketType packtype, uint64_t physicalAddr, 
+		unsigned col, unsigned rw, unsigned r, unsigned b, void *dat, ostream &dramsim_log_,
+		uint64_t physicalAddr2, unsigned col2, unsigned rw2, unsigned r2, unsigned b2);
 
 	void print();
 	void print(uint64_t currentClockCycle, bool dataStart);

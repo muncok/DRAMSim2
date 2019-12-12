@@ -238,12 +238,15 @@ void MemorySystem::update()
 	//PRINT("\n"); // two new lines
 }
 
-void MemorySystem::RegisterCallbacks( Callback_t* readCB, Callback_t* writeCB,
+void MemorySystem::RegisterCallbacks( Callback_t* readCB, Callback_t* writeCB, 
+									  Callback_t* readQuantCB, Callback_t* writeUpdateCB,
                                       void (*reportPower)(double bgpower, double burstpower,
                                                           double refreshpower, double actprepower))
 {
 	ReturnReadData = readCB;
 	WriteDataDone = writeCB;
+	ReturnReadQuantData = readQuantCB;
+	WriteUpdateDone = writeUpdateCB;
 	ReportPower = reportPower;
 }
 

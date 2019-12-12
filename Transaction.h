@@ -46,7 +46,9 @@ enum TransactionType
 {
 	DATA_READ,
 	DATA_WRITE,
-	RETURN_DATA
+	RETURN_DATA,
+	DATA_QUANT_READ,
+	DATA_UPDATE
 };
 
 class Transaction
@@ -56,6 +58,7 @@ public:
 	//fields
 	TransactionType transactionType;
 	uint64_t address;
+	uint64_t address2;
 	void *data;
 	uint64_t timeAdded;
 	uint64_t timeReturned;
@@ -64,13 +67,32 @@ public:
 	friend ostream &operator<<(ostream &os, const Transaction &t);
 	//functions
 	Transaction(TransactionType transType, uint64_t addr, void *data);
+	Transaction(TransactionType transType, uint64_t addr, uint64_t addr2, void *data);
 	Transaction(const Transaction &t);
 
 	BusPacketType getBusPacketType()
 	{
 		switch (transactionType)
 		{
-			case DATA_READ:
+        case DATA_UPDATE:
+			return WRITE_UPDATE;
+			break;
+		case DATA_QUANT_READ:
+			if (rowBufferPolicy == ClosePage)
+			{
+				return READ_FOUR_P;
+			}
+			else if (rowBufferPolicy == OpenPage)
+			{
+				return READ_FOUR; 
+			}
+			else
+			{
+				ERROR("Unknown row buffer policy");
+				abort();
+			}
+			break;
+		case DATA_READ:
 			if (rowBufferPolicy == ClosePage)
 			{
 				return READ_P;

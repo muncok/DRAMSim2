@@ -58,6 +58,20 @@ BusPacket::BusPacket(BusPacketType packtype, uint64_t physicalAddr,
 	data(dat)
 {}
 
+BusPacket::BusPacket(BusPacketType packtype, uint64_t physicalAddr, 
+		unsigned col, unsigned rw, unsigned r, unsigned b, void *dat, ostream &dramsim_log_,
+		uint64_t physicalAddr2, unsigned col2, unsigned rw2, unsigned r2, unsigned b2 
+		) :
+	dramsim_log(dramsim_log_),
+	busPacketType(packtype),
+	column(col), column2(col2),
+	row(rw), row2(rw2),
+	bank(b), bank2(b2),
+	rank(r), rank2(r2),
+	physicalAddress(physicalAddr), physicalAddress2(physicalAddr2),
+	data(dat)
+{}
+
 void BusPacket::print(uint64_t currentClockCycle, bool dataStart)
 {
 	if (this == NULL)
@@ -80,6 +94,9 @@ void BusPacket::print(uint64_t currentClockCycle, bool dataStart)
 			break;
 		case WRITE_P:
 			cmd_verify_out << currentClockCycle << ": write ("<<rank<<","<<bank<<","<<column<<",1, 0, 'h0);"<<endl;
+			break;
+		case WRITE_UPDATE:
+			cmd_verify_out << currentClockCycle << ": update ("<<rank<<","<<bank<<","<<column<<",1, 0, 'h0);"<<endl;
 			break;
 		case ACTIVATE:
 			cmd_verify_out << currentClockCycle <<": activate (" << rank << "," << bank << "," << row <<");"<<endl;
@@ -112,14 +129,24 @@ void BusPacket::print()
 		case READ:
 			PRINT("BP [READ] pa[0x"<<hex<<physicalAddress<<dec<<"] r["<<rank<<"] b["<<bank<<"] row["<<row<<"] col["<<column<<"]");
 			break;
+		case READ_FOUR:
+			PRINT("BP [READ_FOUR] pa[0x"<<hex<<physicalAddress<<dec<<"] r["<<rank<<"] b["<<bank<<"] row["<<row<<"] col["<<column<<"]");
+			break;
 		case READ_P:
 			PRINT("BP [READ_P] pa[0x"<<hex<<physicalAddress<<dec<<"] r["<<rank<<"] b["<<bank<<"] row["<<row<<"] col["<<column<<"]");
+			break;
+		case READ_FOUR_P:
+			PRINT("BP [READ_FOUR_P] pa[0x"<<hex<<physicalAddress<<dec<<"] r["<<rank<<"] b["<<bank<<"] row["<<row<<"] col["<<column<<"]");
 			break;
 		case WRITE:
 			PRINT("BP [WRITE] pa[0x"<<hex<<physicalAddress<<dec<<"] r["<<rank<<"] b["<<bank<<"] row["<<row<<"] col["<<column<<"]");
 			break;
 		case WRITE_P:
 			PRINT("BP [WRITE_P] pa[0x"<<hex<<physicalAddress<<dec<<"] r["<<rank<<"] b["<<bank<<"] row["<<row<<"] col["<<column<<"]");
+			break;
+		case WRITE_UPDATE:
+			PRINT("BP [WRITE_UPDATE] pa[0x"<<hex<<physicalAddress<<dec<<"] r["<<rank<<"] b["<<bank<<"] row["<<row<<"] col["<<column<<"] " \
+			 << "pa[0x"<<hex<<physicalAddress2<<dec<<"] r["<<rank2<<"] b["<<bank2<<"] row["<<row2<<"] col["<<column2<<"]");
 			break;
 		case ACTIVATE:
 			PRINT("BP [ACT] pa[0x"<<hex<<physicalAddress<<dec<<"] r["<<rank<<"] b["<<bank<<"] row["<<row<<"] col["<<column<<"]");
@@ -133,6 +160,10 @@ void BusPacket::print()
 		case DATA:
 			PRINTN("BP [DATA] pa[0x"<<hex<<physicalAddress<<dec<<"] r["<<rank<<"] b["<<bank<<"] row["<<row<<"] col["<<column<<"] data["<<data<<"]=");
 			printData();
+			PRINT("");
+			break;
+		case DATA_GRAD:
+			PRINTN("BP [DATA_GRAD] pa[0x"<<hex<<physicalAddress<<dec<<"] r["<<rank<<"] b["<<bank<<"] row["<<row<<"] col["<<column<<"]");
 			PRINT("");
 			break;
 		default:

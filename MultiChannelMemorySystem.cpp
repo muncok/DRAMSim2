@@ -490,11 +490,13 @@ void MultiChannelMemorySystem::printStats(bool finalStats) {
 void MultiChannelMemorySystem::RegisterCallbacks( 
 		TransactionCompleteCB *readDone,
 		TransactionCompleteCB *writeDone,
+		TransactionCompleteCB *readQuantDone,
+		TransactionCompleteCB *writeUpdateDone,
 		void (*reportPower)(double bgpower, double burstpower, double refreshpower, double actprepower))
 {
 	for (size_t i=0; i<NUM_CHANS; i++)
 	{
-		channels[i]->RegisterCallbacks(readDone, writeDone, reportPower); 
+		channels[i]->RegisterCallbacks(readDone, writeDone, readQuantDone, writeUpdateDone, reportPower); 
 	}
 }
 

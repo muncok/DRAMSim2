@@ -56,6 +56,8 @@ class MultiChannelMemorySystem : public SimulatorObject
 			void RegisterCallbacks( 
 				TransactionCompleteCB *readDone,
 				TransactionCompleteCB *writeDone,
+				TransactionCompleteCB *readQuantDone,
+				TransactionCompleteCB *writeUpdateDone,
 				void (*reportPower)(double bgpower, double burstpower, double refreshpower, double actprepower));
 			int getIniBool(const std::string &field, bool *val);
 			int getIniUint(const std::string &field, unsigned int *val);

@@ -36,6 +36,7 @@
  * provide all necessary functionality to talk to an external simulator
  */
 #include "Callback.h"
+#include "Transaction.h"
 #include <string>
 using std::string;
 
@@ -45,6 +46,7 @@ namespace DRAMSim
 	class MultiChannelMemorySystem {
 		public: 
 			bool addTransaction(bool isWrite, uint64_t addr);
+			bool addTransaction(Transaction *trans);
 			void setCPUClockSpeed(uint64_t cpuClkFreqHz);
 			void update();
 			void printStats(bool finalStats);
@@ -55,6 +57,8 @@ namespace DRAMSim
 			void RegisterCallbacks( 
 				TransactionCompleteCB *readDone,
 				TransactionCompleteCB *writeDone,
+				TransactionCompleteCB *readQuantDone,
+				TransactionCompleteCB *writeUpdateDone,
 				void (*reportPower)(double bgpower, double burstpower, double refreshpower, double actprepower));
 			int getIniBool(const std::string &field, bool *val);
 			int getIniUint(const std::string &field, unsigned int *val);

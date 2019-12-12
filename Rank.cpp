@@ -111,7 +111,6 @@ void Rank::receiveFromBus(BusPacket *packet)
 			bankStates[i].nextRead = max(bankStates[i].nextRead, currentClockCycle + max(tCCD, BL/2));
 			bankStates[i].nextWrite = max(bankStates[i].nextWrite, currentClockCycle + READ_TO_WRITE_DELAY);
 		}
-
 		//get the read data and put it in the storage which delays until the appropriate time (RL)
 #ifndef NO_STORAGE
 		banks[packet->bank].read(packet);
@@ -120,6 +119,42 @@ void Rank::receiveFromBus(BusPacket *packet)
 #endif
 		readReturnPacket.push_back(packet);
 		readReturnCountdown.push_back(RL);
+		break;
+	case READ_FOUR:
+		//make sure a read is allowed
+		if (bankStates[packet->bank].currentBankState != RowActive ||
+		        currentClockCycle < bankStates[packet->bank].nextRead ||
+		        packet->row != bankStates[packet->bank].openRowAddress)
+		{
+			packet->print();
+			ERROR("== Error - Rank " << id << " received a READ when not allowed");
+			exit(0);
+		}
+
+		//update state table
+		bankStates[packet->bank].nextPrecharge = max(bankStates[packet->bank].nextPrecharge, 
+													 currentClockCycle + READ_FOUR_TO_PRE_DELAY);
+		for (size_t i=0;i<NUM_BANKS;i++)
+		{
+			if (packet->bank == i)
+			{
+				bankStates[i].nextRead = max(bankStates[i].nextRead, currentClockCycle + max(4*tCCD, BL/2));
+				bankStates[i].nextWrite = max(bankStates[i].nextWrite, currentClockCycle + 3*tCCD + READ_TO_WRITE_DELAY);
+			}
+			else
+			{
+				bankStates[i].nextRead = max(bankStates[i].nextRead, currentClockCycle + max(tCCD, BL/2));
+				bankStates[i].nextWrite = max(bankStates[i].nextWrite, currentClockCycle + READ_TO_WRITE_DELAY);
+			}
+		}
+		//get the read data and put it in the storage which delays until the appropriate time (RL)
+#ifndef NO_STORAGE
+		banks[packet->bank].read(packet);
+#else
+		packet->busPacketType = DATA;
+#endif
+		readReturnPacket.push_back(packet);
+		readReturnCountdown.push_back(3*tCCD+RL);
 		break;
 	case READ_P:
 		//make sure a read is allowed
@@ -140,16 +175,51 @@ void Rank::receiveFromBus(BusPacket *packet)
 			bankStates[i].nextRead = max(bankStates[i].nextRead, currentClockCycle + max(BL/2, tCCD));
 			bankStates[i].nextWrite = max(bankStates[i].nextWrite, currentClockCycle + READ_TO_WRITE_DELAY);
 		}
-
 		//get the read data and put it in the storage which delays until the appropriate time (RL)
 #ifndef NO_STORAGE
 		banks[packet->bank].read(packet);
 #else
 		packet->busPacketType = DATA;
 #endif
-
 		readReturnPacket.push_back(packet);
 		readReturnCountdown.push_back(RL);
+		break;
+	case READ_FOUR_P:
+		//make sure a read is allowed
+		if (bankStates[packet->bank].currentBankState != RowActive ||
+		        currentClockCycle < bankStates[packet->bank].nextRead ||
+		        packet->row != bankStates[packet->bank].openRowAddress)
+		{
+			ERROR("== Error - Rank " << id << " received a READ_P when not allowed");
+			exit(-1);
+		}
+
+		//update state table
+		bankStates[packet->bank].currentBankState = Idle;
+		bankStates[packet->bank].nextActivate = max(bankStates[packet->bank].nextActivate, 
+													currentClockCycle + READ_FOUR_AUTOPRE_DELAY);
+		for (size_t i=0;i<NUM_BANKS;i++)
+		{
+			//will set next read/write for all banks - including current (which shouldnt matter since its now idle)
+			if (packet->bank == i)
+			{
+				bankStates[i].nextRead = max(bankStates[i].nextRead, currentClockCycle + max(4*tCCD, BL/2));
+				bankStates[i].nextWrite = max(bankStates[i].nextWrite, currentClockCycle + 3*tCCD + READ_TO_WRITE_DELAY);
+			}
+			else
+			{
+				bankStates[i].nextRead = max(bankStates[i].nextRead, currentClockCycle + max(tCCD, BL/2));
+				bankStates[i].nextWrite = max(bankStates[i].nextWrite, currentClockCycle + READ_TO_WRITE_DELAY);
+			}
+		}
+		//get the read data and put it in the storage which delays until the appropriate time (RL)
+#ifndef NO_STORAGE
+		banks[packet->bank].read(packet);
+#else
+		packet->busPacketType = DATA;
+#endif
+		readReturnPacket.push_back(packet);
+		readReturnCountdown.push_back(3*tCCD+RL);
 		break;
 	case WRITE:
 		//make sure a write is allowed
@@ -201,8 +271,45 @@ void Rank::receiveFromBus(BusPacket *packet)
 		incomingWriteColumn = packet->column;
 		delete(packet);
 		break;
+	case WRITE_UPDATE:
+		//make sure a write is allowed
+		if (bankStates[packet->bank].currentBankState != RowActive ||
+		        currentClockCycle < bankStates[packet->bank].nextWrite ||
+		        packet->row != bankStates[packet->bank].openRowAddress)
+		{
+			ERROR("== Error - Rank " << id << " received a WRITE when not allowed");
+			bankStates[packet->bank].print();
+			exit(0);
+		}
+
+		//update state table
+		bankStates[packet->bank].currentBankState = Idle;
+		bankStates[packet->bank].nextActivate = max(bankStates[packet->bank].nextActivate, currentClockCycle + WRITE_UPDATE_DELAY);
+		for (size_t i=0;i<NUM_BANKS;i++)
+		{
+			if (packet->bank == i)
+			{
+				// Activate override Read and Write because it is in Idle state now.
+				bankStates[i].nextRead = bankStates[i].nextActivate;
+				bankStates[i].nextWrite = bankStates[i].nextActivate;
+			}
+			else
+			{
+				bankStates[i].nextRead = max(bankStates[i].nextRead, currentClockCycle + WRITE_TO_READ_DELAY_B);
+				bankStates[i].nextWrite = max(bankStates[i].nextWrite, currentClockCycle + max(BL/2, tCCD));
+			}
+			
+		}
+
+		//take note of where data is going when it arrives
+		incomingWriteBank = packet->bank;
+		incomingWriteRow = packet->row;
+		incomingWriteColumn = packet->column;
+		delete(packet);
+		break;
 	case ACTIVATE:
 		//make sure activate is allowed
+		// PRINT(bankStates[packet->bank].currentBankState << ", " << currentClockCycle << ", " << bankStates[packet->bank].nextActivate);
 		if (bankStates[packet->bank].currentBankState != Idle ||
 		        currentClockCycle < bankStates[packet->bank].nextActivate)
 		{
@@ -265,6 +372,7 @@ void Rank::receiveFromBus(BusPacket *packet)
 		delete(packet); 
 		break;
 	case DATA:
+	case DATA_GRAD:
 		// TODO: replace this check with something that works?
 		/*
 		if(packet->bank != incomingWriteBank ||
@@ -315,8 +423,14 @@ void Rank::update()
 	// decrement the counter for all packets waiting to be sent back
 	for (size_t i=0;i<readReturnCountdown.size();i++)
 	{
-		readReturnCountdown[i]--;
+		// with READ_FOUR, next Count can be smaller than previous one
+		PRINTN("readReturnCountdown[" << i << "]: " << readReturnCountdown[i]<<endl);
+		if (readReturnCountdown[i] > 0)
+		{
+			readReturnCountdown[i]--;
+		}
 	}
+
 
 
 	if (readReturnCountdown.size() > 0 && readReturnCountdown[0]==0)

@@ -642,6 +642,9 @@ bool CommandQueue::isIssuable(BusPacket *busPacket)
 			return false;
 		}
 		break;
+	case WRITE_UPDATE:
+		// PRINT("ROW_ACCESSES: " << rowAccessCounters[busPacket->rank][busPacket->bank]);
+		// PRINT("next write (current): " << bankStates[busPacket->rank][busPacket->bank].nextWrite << " (" << currentClockCycle << ")");
 	case WRITE:
 	case WRITE_P:
 		if (bankStates[busPacket->rank][busPacket->bank].currentBankState == RowActive &&
@@ -656,6 +659,8 @@ bool CommandQueue::isIssuable(BusPacket *busPacket)
 			return false;
 		}
 		break;
+	case READ_FOUR:
+	case READ_FOUR_P:
 	case READ_P:
 	case READ:
 		if (bankStates[busPacket->rank][busPacket->bank].currentBankState == RowActive &&

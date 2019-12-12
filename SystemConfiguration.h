@@ -108,9 +108,13 @@ extern unsigned tWTR;
 extern unsigned tWR;
 extern unsigned tRTRS;
 extern unsigned tRFC;
-extern unsigned tFAW;
+extern unsigned tFAW; 
 extern unsigned tCKE;
 extern unsigned tXP;
+
+// PIM timings
+extern unsigned tPIM1;
+extern unsigned tPIM2;
 
 extern unsigned tCMD;
 
@@ -121,11 +125,17 @@ extern unsigned NUM_DEVICES;
 //same bank
 #define READ_TO_PRE_DELAY (AL+BL/2+ max(tRTP,tCCD)-tCCD)
 #define WRITE_TO_PRE_DELAY (WL+BL/2+tWR)
+#define UPDATE_TO_PRE_DELAY (WL)
 #define READ_TO_WRITE_DELAY (RL+BL/2+tRTRS-WL)
 #define READ_AUTOPRE_DELAY (AL+tRTP+tRP)
 #define WRITE_AUTOPRE_DELAY (WL+BL/2+tWR+tRP)
 #define WRITE_TO_READ_DELAY_B (WL+BL/2+tWTR) //interbank
 #define WRITE_TO_READ_DELAY_R (WL+BL/2+tRTRS-RL) //interrank
+
+#define READ_FOUR_TO_PRE_DELAY (AL+BL/2+ max(tRTP, 4*tCCD)-tCCD)
+#define READ_FOUR_AUTOPRE_DELAY (AL+3*tCCD+tRTP+tRP)
+#define tAC 8 // data access time after RD
+#define WRITE_UPDATE_DELAY (tAC + max(tRAS+tRP, tPIM1) + max((tRAS-tRCD)-tRTP-tAC, tPIM2) + tRTP + tRP)
 
 extern unsigned JEDEC_DATA_BUS_BITS;
 

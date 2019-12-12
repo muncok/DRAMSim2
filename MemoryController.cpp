@@ -113,7 +113,7 @@ MemoryController::MemoryController(MemorySystem *parent, CSVWriter &csvOut_, ost
 //get a bus packet from either data or cmd bus
 void MemoryController::receiveFromBus(BusPacket *bpacket)
 {
-	if (bpacket->busPacketType != DATA)
+	if (bpacket->busPacketType != DATA && bpacket->busPacketType != DATA_GRAD)
 	{
 		ERROR("== Error - Memory Controller received a non-DATA bus packet from rank");
 		bpacket->print();
@@ -139,7 +139,21 @@ void MemoryController::returnReadData(const Transaction *trans)
 {
 	if (parentMemorySystem->ReturnReadData!=NULL)
 	{
-		(*parentMemorySystem->ReturnReadData)(parentMemorySystem->systemID, trans->address, currentClockCycle);
+		if (trans->transactionType == DATA_READ)
+		{
+			(*parentMemorySystem->ReturnReadData)(parentMemorySystem->systemID, trans->address, currentClockCycle);
+		}
+		else if (trans->transactionType == DATA_QUANT_READ)
+		{
+			(*parentMemorySystem->ReturnReadQuantData)(parentMemorySystem->systemID, trans->address, currentClockCycle);
+
+		}
+		else
+		{
+			ERROR("Not READ Transaction");
+			abort();
+		}
+		
 	}
 }
 
@@ -171,13 +185,14 @@ void MemoryController::update()
 					switch (bankStates[i][j].lastCommand)
 					{
 						//only these commands have an implicit state change
+					case WRITE_UPDATE:
+				    case READ_FOUR_P:
 					case WRITE_P:
 					case READ_P:
 						bankStates[i][j].currentBankState = Precharging;
 						bankStates[i][j].lastCommand = PRECHARGE;
 						bankStates[i][j].stateChangeCountdown = tRP;
 						break;
-
 					case REFRESH:
 					case PRECHARGE:
 						bankStates[i][j].currentBankState = Idle;
@@ -211,7 +226,21 @@ void MemoryController::update()
 			//inform upper levels that a write is done
 			if (parentMemorySystem->WriteDataDone!=NULL)
 			{
-				(*parentMemorySystem->WriteDataDone)(parentMemorySystem->systemID,outgoingDataPacket->physicalAddress, currentClockCycle);
+				if (outgoingDataPacket->busPacketType == DATA)
+				{
+					(*parentMemorySystem->WriteDataDone)(parentMemorySystem->systemID,outgoingDataPacket->physicalAddress, currentClockCycle);
+				}
+				else if (outgoingDataPacket->busPacketType == DATA_GRAD)
+				{
+					(*parentMemorySystem->WriteUpdateDone)(parentMemorySystem->systemID,outgoingDataPacket->physicalAddress, currentClockCycle);
+				}
+				else
+				{
+					ERROR("Unknown WriteData packet type");
+					abort();
+				}
+				
+				
 			}
 
 			(*ranks)[outgoingDataPacket->rank]->receiveFromBus(outgoingDataPacket);
@@ -283,13 +312,26 @@ void MemoryController::update()
 	//function returns true if there is something valid in poppedBusPacket
 	if (commandQueue.pop(&poppedBusPacket))
 	{
-		if (poppedBusPacket->busPacketType == WRITE || poppedBusPacket->busPacketType == WRITE_P)
+		if (poppedBusPacket->busPacketType == WRITE || poppedBusPacket->busPacketType == WRITE_P || 
+		poppedBusPacket->busPacketType == WRITE_UPDATE)
 		{
 
-			writeDataToSend.push_back(new BusPacket(DATA, poppedBusPacket->physicalAddress, poppedBusPacket->column,
-			                                    poppedBusPacket->row, poppedBusPacket->rank, poppedBusPacket->bank,
-			                                    poppedBusPacket->data, dramsim_log));
-			writeDataCountdown.push_back(WL);
+			if (poppedBusPacket->busPacketType != WRITE_UPDATE)
+			{
+				writeDataToSend.push_back(new BusPacket(DATA, poppedBusPacket->physicalAddress, poppedBusPacket->column,
+													poppedBusPacket->row, poppedBusPacket->rank, poppedBusPacket->bank,
+													poppedBusPacket->data, dramsim_log));
+				writeDataCountdown.push_back(WL);
+			}
+			else
+			{
+				// send DATA_GRAD to rank
+				writeDataToSend.push_back(new BusPacket(DATA_GRAD, poppedBusPacket->physicalAddress, poppedBusPacket->column,
+													poppedBusPacket->row, poppedBusPacket->rank, poppedBusPacket->bank,
+													poppedBusPacket->data, dramsim_log));
+				writeDataCountdown.push_back(WRITE_UPDATE_DELAY);
+			}
+			
 		}
 
 		//
@@ -300,6 +342,8 @@ void MemoryController::update()
 		unsigned bank = poppedBusPacket->bank;
 		switch (poppedBusPacket->busPacketType)
 		{
+			case READ_FOUR_P:
+			case READ_FOUR:
 			case READ_P:
 			case READ:
 				//add energy to account for total
@@ -308,6 +352,7 @@ void MemoryController::update()
 					PRINT(" ++ Adding Read energy to total energy");
 				}
 				burstEnergy[rank] += (IDD4R - IDD3N) * BL/2 * NUM_DEVICES;
+				// set timing constraints in a bank
 				if (poppedBusPacket->busPacketType == READ_P) 
 				{
 					//Don't bother setting next read or write times because the bank is no longer active
@@ -317,6 +362,16 @@ void MemoryController::update()
 					bankStates[rank][bank].lastCommand = READ_P;
 					bankStates[rank][bank].stateChangeCountdown = READ_TO_PRE_DELAY;
 				}
+				else if (poppedBusPacket->busPacketType == READ_FOUR_P)
+				{
+					//Don't bother setting next read or write times because the bank is no longer active
+					//bankStates[rank][bank].currentBankState = Idle;
+					bankStates[rank][bank].nextActivate = max(currentClockCycle + READ_FOUR_AUTOPRE_DELAY,
+							bankStates[rank][bank].nextActivate);
+					bankStates[rank][bank].lastCommand = READ_FOUR_P;
+					bankStates[rank][bank].stateChangeCountdown = READ_FOUR_TO_PRE_DELAY;
+
+				}
 				else if (poppedBusPacket->busPacketType == READ)
 				{
 					bankStates[rank][bank].nextPrecharge = max(currentClockCycle + READ_TO_PRE_DELAY,
@@ -324,7 +379,15 @@ void MemoryController::update()
 					bankStates[rank][bank].lastCommand = READ;
 
 				}
+				else if (poppedBusPacket->busPacketType == READ_FOUR)
+				{
+					bankStates[rank][bank].nextPrecharge = max(currentClockCycle + READ_FOUR_TO_PRE_DELAY,
+							bankStates[rank][bank].nextPrecharge);
+					bankStates[rank][bank].lastCommand = READ_FOUR;
 
+				}
+
+				// set timing constraints for read/write at inter-ranks and banks
 				for (size_t i=0;i<NUM_RANKS;i++)
 				{
 					for (size_t j=0;j<NUM_BANKS;j++)
@@ -341,14 +404,24 @@ void MemoryController::update()
 						}
 						else
 						{
-							bankStates[i][j].nextRead = max(currentClockCycle + max(tCCD, BL/2), bankStates[i][j].nextRead);
-							bankStates[i][j].nextWrite = max(currentClockCycle + READ_TO_WRITE_DELAY,
-									bankStates[i][j].nextWrite);
+							if (poppedBusPacket->busPacketType == READ_FOUR && j == poppedBusPacket->bank)
+							{
+
+								bankStates[i][j].nextRead = max(currentClockCycle + max(tCCD*4, BL/2), bankStates[i][j].nextRead);
+								bankStates[i][j].nextWrite = max(currentClockCycle + tCCD*3 + READ_TO_WRITE_DELAY ,
+										bankStates[i][j].nextWrite);
+							}
+							else
+							{
+								bankStates[i][j].nextRead = max(currentClockCycle + max(tCCD, BL/2), bankStates[i][j].nextRead);
+								bankStates[i][j].nextWrite = max(currentClockCycle + READ_TO_WRITE_DELAY,
+										bankStates[i][j].nextWrite);
+							}
 						}
 					}
 				}
 
-				if (poppedBusPacket->busPacketType == READ_P)
+				if (poppedBusPacket->busPacketType == READ_P || poppedBusPacket->busPacketType == READ_FOUR_P)
 				{
 					//set read and write to nextActivate so the state table will prevent a read or write
 					//  being issued (in cq.isIssuable())before the bank state has been changed because of the
@@ -412,6 +485,55 @@ void MemoryController::update()
 					bankStates[rank][bank].nextRead = bankStates[rank][bank].nextActivate;
 					bankStates[rank][bank].nextWrite = bankStates[rank][bank].nextActivate;
 				}
+
+				break;
+			case WRITE_UPDATE:
+				//TODO: POWER CALCULATION
+				// row1: d_weight, row2: weight
+				// ACT row1 was done before
+				// READ row1 -> PIM1 -> PRE row1 -> ACT row2 -> READ row2 -> PIM2 -> WRITE row2 -> PRE row2
+				// tAC + max(tRTP+tRP+tRCD, tRAS+tRP, tPIM1) + max((tRAS-tRCD)-tWR-tAC, tPIM2) + tWR + tRP
+
+				// precharge for row1 was done
+				bankStates[rank][bank].nextActivate = max(currentClockCycle + WRITE_UPDATE_DELAY,
+						bankStates[rank][bank].nextActivate);
+				bankStates[rank][bank].lastCommand = WRITE_UPDATE;
+				// we read at row1
+				bankStates[rank][bank].stateChangeCountdown = READ_TO_PRE_DELAY;
+
+				for (size_t i=0;i<NUM_RANKS;i++)
+				{
+					for (size_t j=0;j<NUM_BANKS;j++)
+					{
+						if (i!=poppedBusPacket->rank)
+						{
+							if (bankStates[i][j].currentBankState == RowActive)
+							{
+								bankStates[i][j].nextWrite = max(currentClockCycle + BL/2 + tRTRS, bankStates[i][j].nextWrite);
+								bankStates[i][j].nextRead = max(currentClockCycle + WRITE_TO_READ_DELAY_R,
+										bankStates[i][j].nextRead);
+							}
+						}
+						else
+						{
+							if (j!=poppedBusPacket->bank)
+							{
+								bankStates[i][j].nextWrite = max(currentClockCycle + max(BL/2, tCCD), bankStates[i][j].nextWrite);
+								bankStates[i][j].nextRead = max(currentClockCycle + WRITE_TO_READ_DELAY_B,
+										bankStates[i][j].nextRead);
+							}
+							else
+							{
+								bankStates[i][j].nextWrite = bankStates[i][j].nextActivate;
+								bankStates[i][j].nextRead = bankStates[i][j].nextActivate;
+								// PRINT("cycle: " << currentClockCycle << " Delay: " << WRITE_UPDATE_DELAY << " nextWrite: " << bankStates[i][j].nextWrite);
+								// bankStates[rank][bank].print();
+							}
+							
+						}
+					}
+				}
+
 
 				break;
 			case ACTIVATE:
@@ -499,9 +621,33 @@ void MemoryController::update()
 
 		//map address to rank,bank,row,col
 		unsigned newTransactionChan, newTransactionRank, newTransactionBank, newTransactionRow, newTransactionColumn;
+		unsigned newTransactionChan2, newTransactionRank2, newTransactionBank2, newTransactionRow2, newTransactionColumn2;
 
 		// pass these in as references so they get set by the addressMapping function
 		addressMapping(transaction->address, newTransactionChan, newTransactionRank, newTransactionBank, newTransactionRow, newTransactionColumn);
+
+		if (transaction->transactionType == DATA_UPDATE)
+		{
+			addressMapping(transaction->address2, newTransactionChan2, newTransactionRank2, 
+							newTransactionBank2, newTransactionRow2, newTransactionColumn2);
+			if (newTransactionChan != newTransactionChan2 || newTransactionRank != newTransactionRank2 ||
+				newTransactionBank != newTransactionBank2)
+			{
+				PRINT(transaction->address << ", " << transaction->address2);
+				PRINT(newTransactionChan << ", " << newTransactionChan2);
+				PRINT(newTransactionRank << ", " << newTransactionRank2);
+				PRINT(newTransactionBank << ", " << newTransactionBank2);
+				ERROR("BANK is not equal between ADDR1 and ADDR2")
+				abort();
+			}
+
+			if (newTransactionRow == newTransactionRow2)
+			{
+				ERROR("ADDR1" << "(" << newTransactionRow << ")" << "and ADDR2" << \
+				 "(" << newTransactionRow2 << ")" << " have same row");
+				abort();
+			}
+		}
 
 		//if we have room, break up the transaction into the appropriate commands
 		//and add them to the command queue
@@ -510,13 +656,13 @@ void MemoryController::update()
 			if (DEBUG_ADDR_MAP) 
 			{
 				PRINTN("== New Transaction - Mapping Address [0x" << hex << transaction->address << dec << "]");
-				if (transaction->transactionType == DATA_READ) 
+				if (transaction->transactionType == DATA_WRITE) 
 				{
-					PRINT(" (Read)");
+					PRINT(" (Write)");
 				}
 				else
 				{
-					PRINT(" (Write)");
+					PRINT(" (Read)");
 				}
 				PRINT("  Rank : " << newTransactionRank);
 				PRINT("  Bank : " << newTransactionBank);
@@ -536,18 +682,32 @@ void MemoryController::update()
 
 			//create read or write command and enqueue it
 			BusPacketType bpType = transaction->getBusPacketType();
-			BusPacket *command = new BusPacket(bpType, transaction->address,
-					newTransactionColumn, newTransactionRow, newTransactionRank,
-					newTransactionBank, transaction->data, dramsim_log);
+			BusPacket *command;
 
-
+			if (bpType != WRITE_UPDATE)
+			{
+				command = new BusPacket(bpType, transaction->address,
+						newTransactionColumn, newTransactionRow, newTransactionRank,
+						newTransactionBank, transaction->data, dramsim_log);
+			}
+			else
+			{
+				command = new BusPacket(bpType, 
+						transaction->address, newTransactionColumn, newTransactionRow, newTransactionRank,
+						newTransactionBank, transaction->data, dramsim_log,
+						transaction->address2, newTransactionColumn2, newTransactionRow2, newTransactionRank2,
+						newTransactionBank2);
+			}
+			
 
 			commandQueue.enqueue(ACTcommand);
 			commandQueue.enqueue(command);
+			
+
 
 			// If we have a read, save the transaction so when the data comes back
 			// in a bus packet, we can staple it back into a transaction and return it
-			if (transaction->transactionType == DATA_READ)
+			if (transaction->transactionType == DATA_READ or transaction->transactionType == DATA_QUANT_READ)
 			{
 				pendingReadTransactions.push_back(transaction);
 			}

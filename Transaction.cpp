@@ -46,6 +46,14 @@ namespace DRAMSim {
 Transaction::Transaction(TransactionType transType, uint64_t addr, void *dat) :
 	transactionType(transType),
 	address(addr),
+	address2(addr),
+	data(dat)
+{}
+
+Transaction::Transaction(TransactionType transType, uint64_t addr, uint64_t addr2, void *dat) :
+	transactionType(transType),
+	address(addr),
+	address2(addr2),
 	data(dat)
 {}
 
@@ -67,6 +75,14 @@ ostream &operator<<(ostream &os, const Transaction &t)
 	if (t.transactionType == DATA_READ)
 	{
 		os<<"T [Read] [0x" << hex << t.address << "]" << dec <<endl;
+	}
+	else if (t.transactionType == DATA_QUANT_READ)
+	{
+		os<<"T [Read_Quant] [0x" << hex << t.address << "] [" << dec << t.data << "]" <<endl;
+	}
+	else if (t.transactionType == DATA_UPDATE)
+	{
+		os<<"T [Update] [0x" << hex << t.address << "] [" << dec << t.data << "]" <<endl;
 	}
 	else if (t.transactionType == DATA_WRITE)
 	{

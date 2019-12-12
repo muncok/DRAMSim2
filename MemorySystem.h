@@ -65,6 +65,8 @@ public:
 	void RegisterCallbacks(
 	    Callback_t *readDone,
 	    Callback_t *writeDone,
+		Callback_t *readQuantDone,
+		Callback_t *writeUpdateDone,
 	    void (*reportPower)(double bgpower, double burstpower, double refreshpower, double actprepower));
 
 	//fields
@@ -76,6 +78,8 @@ public:
 	//function pointers
 	Callback_t* ReturnReadData;
 	Callback_t* WriteDataDone;
+	Callback_t* ReturnReadQuantData;
+	Callback_t* WriteUpdateDone;
 	//TODO: make this a functor as well?
 	static powerCallBack_t ReportPower;
 	unsigned systemID;
