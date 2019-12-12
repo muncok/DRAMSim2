@@ -439,7 +439,7 @@ void Rank::update()
     // PRINT("minCountdown: " << *minCountdown);
     // PRINT("position: " << position);
 
-    if (*minCountdown==0)
+    if (*minCountdown==0 && dataCyclesLeft==0)
     {
       // RL time has passed since the read was issued; this packet is
       // ready to go out on the bus
@@ -449,7 +449,6 @@ void Rank::update()
 
       // remove the packet from the ranks
       readReturnPacket.erase(readReturnPacket.begin()+position);
-      //readReturnCountdown.erase(readReturnCountdown.begin());
       readReturnCountdown.erase(minCountdown);
 
       if (DEBUG_BUS)

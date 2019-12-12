@@ -44,6 +44,7 @@ class some_object
 		void write_complete(unsigned, uint64_t, uint64_t);
 		void write_update_complete(unsigned, uint64_t, uint64_t);
 		int read_test(DRAMSim::MultiChannelMemorySystem *mem, uint64_t addr);
+		int read_mix_test(DRAMSim::MultiChannelMemorySystem *mem, uint64_t addr);
 		int write_test(DRAMSim::MultiChannelMemorySystem *mem, uint64_t addr);
 		int read_quant_test(DRAMSim::MultiChannelMemorySystem *mem, uint64_t addr);
 		int update_test(DRAMSim::MultiChannelMemorySystem *mem, uint64_t addr, uint64_t addr2);

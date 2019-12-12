@@ -90,6 +90,45 @@ int some_object::read_test(MultiChannelMemorySystem *mem, uint64_t addr)
 	return 0;
 }
 
+int some_object::read_mix_test(MultiChannelMemorySystem *mem, uint64_t addr)
+{
+
+	for(unsigned i=0; i < 50; i++)
+	{
+		/* create a transaction and add it */
+		TransactionType type;
+		if (i%2 == 0)
+		{
+			type = DATA_READ;
+		}
+		else
+		{
+			type = DATA_QUANT_READ;
+		}
+		
+		Transaction *trans = new Transaction(type, addr+0x100UL*(i), NULL);
+		mem->addTransaction(trans);
+
+		// send a read to channel 1 on the same cycle
+		// addr = 1LL<<33 | addr;
+		// mem->addTransaction(isWrite, addr);
+
+		for (int j = 0; j < 10; j++)
+		{
+			mem->update();
+		}
+	}
+
+	for (int j = 0; j < 1000; j++)
+	{
+		mem->update();
+	}
+	/* get a nice summary of this epoch */
+	mem->printStats(true);
+
+	return 0;
+}
+
 int some_object::write_test(MultiChannelMemorySystem *mem, uint64_t addr)
 {
 
@@ -194,9 +233,10 @@ int main()
 
 	printf("dramsim_test main()\n");
 	printf("-----MEM1------\n");
-	obj.write_test(mem, 0x100000UL);
-	obj.read_quant_test(mem, 0x100000UL);
-	obj.update_test(mem, 0x100000UL, 0x300000UL);
+	// obj.write_test(mem, 0x100000UL);
+	// obj.read_quant_test(mem, 0x100000UL);
+	// obj.update_test(mem, 0x100000UL, 0x300000UL);
+	obj.read_mix_test(mem, 0x000000UL);
 
 	for (int j = 0; j < 500; j++)
 	{
