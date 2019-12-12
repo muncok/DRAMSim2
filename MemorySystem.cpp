@@ -196,7 +196,16 @@ bool MemorySystem::addTransaction(bool isWrite, uint64_t addr)
 
 bool MemorySystem::addTransaction(Transaction *trans)
 {
-	return memoryController->addTransaction(trans);
+	if (memoryController->WillAcceptTransaction()) 
+	{
+		return memoryController->addTransaction(trans);
+	}
+	else
+	{
+		pendingTransactions.push_back(trans);
+		return true;
+	}
+	// return memoryController->addTransaction(trans);
 }
 
 //prints statistics
