@@ -34,6 +34,8 @@
 #ifndef RANK_H
 #define RANK_H
 
+#include <algorithm>
+#include <vector>
 #include "SimulatorObject.h"
 #include "BusPacket.h"
 #include "SystemConfiguration.h"

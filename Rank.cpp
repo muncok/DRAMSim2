@@ -424,34 +424,39 @@ void Rank::update()
 	for (size_t i=0;i<readReturnCountdown.size();i++)
 	{
 		// with READ_FOUR, next Count can be smaller than previous one
-		PRINTN("readReturnCountdown[" << i << "]: " << readReturnCountdown[i]<<endl);
+    //PRINTN("readReturnCountdown[" << i << "]: " << readReturnCountdown[i]<<endl);
 		if (readReturnCountdown[i] > 0)
 		{
 			readReturnCountdown[i]--;
 		}
 	}
 
+  // now we have different RL values
+  if (readReturnCountdown.size() > 0)
+  {
+    vector<unsigned>::iterator minCountdown= min_element(readReturnCountdown.begin(), readReturnCountdown.end());
+    PRINT("minCountdown: " << *minCountdown);
 
+    if (*minCountdown==0)
+    {
+      // RL time has passed since the read was issued; this packet is
+      // ready to go out on the bus
 
-	if (readReturnCountdown.size() > 0 && readReturnCountdown[0]==0)
-	{
-		// RL time has passed since the read was issued; this packet is
-		// ready to go out on the bus
+      outgoingDataPacket = readReturnPacket[0];
+      dataCyclesLeft = BL/2;
 
-		outgoingDataPacket = readReturnPacket[0];
-		dataCyclesLeft = BL/2;
+      // remove the packet from the ranks
+      readReturnPacket.erase(readReturnPacket.begin());
+      //readReturnCountdown.erase(readReturnCountdown.begin());
+      readReturnCountdown.erase(minCountdown);
 
-		// remove the packet from the ranks
-		readReturnPacket.erase(readReturnPacket.begin());
-		readReturnCountdown.erase(readReturnCountdown.begin());
-
-		if (DEBUG_BUS)
-		{
-			PRINTN(" -- R" << this->id << " Issuing On Data Bus : ");
-			outgoingDataPacket->print();
-			PRINT("");
-		}
-
+      if (DEBUG_BUS)
+      {
+        PRINTN(" -- R" << this->id << " Issuing On Data Bus : ");
+        outgoingDataPacket->print();
+        PRINT("");
+      }
+    }
 	}
 }
 
