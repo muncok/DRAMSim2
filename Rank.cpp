@@ -424,29 +424,31 @@ void Rank::update()
 	for (size_t i=0;i<readReturnCountdown.size();i++)
 	{
 		// with READ_FOUR, next Count can be smaller than previous one
-    //PRINTN("readReturnCountdown[" << i << "]: " << readReturnCountdown[i]<<endl);
 		if (readReturnCountdown[i] > 0)
 		{
 			readReturnCountdown[i]--;
 		}
+        // PRINT("readReturnCountdown[" << i << "]: " << readReturnCountdown[i]);
 	}
 
   // now we have different RL values
   if (readReturnCountdown.size() > 0)
   {
-    vector<unsigned>::iterator minCountdown= min_element(readReturnCountdown.begin(), readReturnCountdown.end());
-    PRINT("minCountdown: " << *minCountdown);
+    vector<unsigned>::iterator minCountdown = min_element(readReturnCountdown.begin(), readReturnCountdown.end());
+	unsigned position = minCountdown - readReturnCountdown.begin();
+    // PRINT("minCountdown: " << *minCountdown);
+    // PRINT("position: " << position);
 
     if (*minCountdown==0)
     {
       // RL time has passed since the read was issued; this packet is
       // ready to go out on the bus
 
-      outgoingDataPacket = readReturnPacket[0];
+      outgoingDataPacket = readReturnPacket[position];
       dataCyclesLeft = BL/2;
 
       // remove the packet from the ranks
-      readReturnPacket.erase(readReturnPacket.begin());
+      readReturnPacket.erase(readReturnPacket.begin()+position);
       //readReturnCountdown.erase(readReturnCountdown.begin());
       readReturnCountdown.erase(minCountdown);
 
