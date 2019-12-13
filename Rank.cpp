@@ -118,7 +118,7 @@ void Rank::receiveFromBus(BusPacket *packet)
 		packet->busPacketType = DATA;
 #endif
 		readReturnPacket.push_back(packet);
-		readReturnCountdown.push_back(RL);
+		readReturnCountdown.push_back(3*tCCD+RL);
 		break;
 	case READ_FOUR:
 		//make sure a read is allowed
@@ -182,7 +182,7 @@ void Rank::receiveFromBus(BusPacket *packet)
 		packet->busPacketType = DATA;
 #endif
 		readReturnPacket.push_back(packet);
-		readReturnCountdown.push_back(RL);
+		readReturnCountdown.push_back(3*tCCD+RL);
 		break;
 	case READ_FOUR_P:
 		//make sure a read is allowed
@@ -424,32 +424,32 @@ void Rank::update()
 	for (size_t i=0;i<readReturnCountdown.size();i++)
 	{
 		// with READ_FOUR, next Count can be smaller than previous one
-		if (readReturnCountdown[i] > 0)
-		{
+		// if (readReturnCountdown[i] > 0)
+		// {
 			readReturnCountdown[i]--;
-		}
+		// }
         // PRINT("readReturnCountdown[" << i << "]: " << readReturnCountdown[i]);
 	}
 
   // now we have different RL values
-  if (readReturnCountdown.size() > 0)
+  if (readReturnCountdown.size() > 0 && readReturnCountdown[0] == 0)
   {
-    vector<unsigned>::iterator minCountdown = min_element(readReturnCountdown.begin(), readReturnCountdown.end());
-	unsigned position = minCountdown - readReturnCountdown.begin();
+    // vector<unsigned>::iterator minCountdown = min_element(readReturnCountdown.begin(), readReturnCountdown.end());
+	// unsigned position = minCountdown - readReturnCountdown.begin();
     // PRINT("minCountdown: " << *minCountdown);
     // PRINT("position: " << position);
 
-    if (*minCountdown==0 && dataCyclesLeft==0)
-    {
+    // if (*minCountdown==0 && dataCyclesLeft == 0)
+    // if (*minCountdown==0)
       // RL time has passed since the read was issued; this packet is
       // ready to go out on the bus
 
-      outgoingDataPacket = readReturnPacket[position];
+      outgoingDataPacket = readReturnPacket[0];
       dataCyclesLeft = BL/2;
 
       // remove the packet from the ranks
-      readReturnPacket.erase(readReturnPacket.begin()+position);
-      readReturnCountdown.erase(minCountdown);
+      readReturnPacket.erase(readReturnPacket.begin());
+      readReturnCountdown.erase(readReturnCountdown.begin());
 
       if (DEBUG_BUS)
       {
@@ -457,7 +457,6 @@ void Rank::update()
         outgoingDataPacket->print();
         PRINT("");
       }
-    }
 	}
 }
 
