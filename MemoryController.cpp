@@ -404,7 +404,8 @@ void MemoryController::update()
 						}
 						else
 						{
-							if (poppedBusPacket->busPacketType == READ_FOUR && j == poppedBusPacket->bank)
+							if ((poppedBusPacket->busPacketType == READ_FOUR || poppedBusPacket->busPacketType == READ_FOUR_P) &&\
+							 j == poppedBusPacket->bank)
 							{
 
 								bankStates[i][j].nextRead = max(currentClockCycle + max(tCCD*4, BL/2), bankStates[i][j].nextRead);

@@ -235,8 +235,8 @@ int main()
 	printf("-----MEM1------\n");
 	// obj.write_test(mem, 0x100000UL);
 	// obj.read_quant_test(mem, 0x100000UL);
-	// obj.update_test(mem, 0x100000UL, 0x300000UL);
-	obj.read_mix_test(mem, 0x000000UL);
+	obj.update_test(mem, 0x100000UL, 0x300000UL);
+	// obj.read_mix_test(mem, 0x000000UL);
 
 	for (int j = 0; j < 500; j++)
 	{

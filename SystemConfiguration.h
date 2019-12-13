@@ -135,7 +135,9 @@ extern unsigned NUM_DEVICES;
 #define READ_FOUR_TO_PRE_DELAY (AL+BL/2+ max(tRTP, 4*tCCD)-tCCD)
 #define READ_FOUR_AUTOPRE_DELAY (AL+3*tCCD+tRTP+tRP)
 #define tAC 8 // data access time after RD
-#define WRITE_UPDATE_DELAY (tAC + max(tRAS+tRP, tPIM1) + max((tRAS-tRCD)-tRTP-tAC, tPIM2) + tRTP + tRP)
+// RD to Data offset + WR1->RD1|PIM1 + PRE row1 + ACT row2 + RD1|PIM2 + PRE row2
+#define WRITE_UPDATE_DELAY (tAC + (tCCD + max(tRAS-(tRCD+tRTP), tPIM1)) + (max(tRTP, tWR-tCCD)+tRP) + \
+							tRCD +  max((tRAS-tRCD)-tRTP-tAC, tPIM2) + tRTP + tRP)
 
 extern unsigned JEDEC_DATA_BUS_BITS;
 
