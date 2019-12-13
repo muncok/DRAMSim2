@@ -186,6 +186,7 @@ void MemoryController::update()
 					{
 						//only these commands have an implicit state change
 					case WRITE_UPDATE:
+						bankStates[i][j].currentBankState = Idle;
 				    case READ_FOUR_P:
 					case WRITE_P:
 					case READ_P:
@@ -495,12 +496,17 @@ void MemoryController::update()
 				// READ row1 -> PIM1 -> PRE row1 -> ACT row2 -> READ row2 -> PIM2 -> WRITE row2 -> PRE row2
 				// tAC + max(tRTP+tRP+tRCD, tRAS+tRP, tPIM1) + max((tRAS-tRCD)-tWR-tAC, tPIM2) + tWR + tRP
 
-				// precharge for row1 was done
+				// both row1 and row2 are in a bank 
+				// we will not issue precharge command independently
 				bankStates[rank][bank].nextActivate = max(currentClockCycle + WRITE_UPDATE_DELAY,
 						bankStates[rank][bank].nextActivate);
 				bankStates[rank][bank].lastCommand = WRITE_UPDATE;
-				// we read at row1
-				bankStates[rank][bank].stateChangeCountdown = READ_TO_PRE_DELAY;
+
+				bankStates[rank][bank].nextPrecharge = max(currentClockCycle + WRITE_UPDATE_DELAY,
+						bankStates[rank][bank].nextPrecharge);
+
+				// change the state to Idle after WRITE_UPDATE (during a WRITE_UPDATE, the rank is out of service)
+				bankStates[rank][bank].stateChangeCountdown = WRITE_UPDATE_DELAY;
 
 				for (size_t i=0;i<NUM_RANKS;i++)
 				{
