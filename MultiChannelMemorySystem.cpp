@@ -60,19 +60,19 @@ MultiChannelMemorySystem::MultiChannelMemorySystem(const string &deviceIniFilena
 		abort(); 
 	}
 
-	if (pwd.length() > 0)
-	{
-		//ignore the pwd argument if the argument is an absolute path
-		if (deviceIniFilename[0] != '/')
-		{
-			deviceIniFilename = pwd + "/" + deviceIniFilename;
-		}
+	//if (pwd.length() > 0)
+	//{
+		////ignore the pwd argument if the argument is an absolute path
+		//if (deviceIniFilename[0] != '/')
+		//{
+			//deviceIniFilename = pwd + "/" + deviceIniFilename;
+		//}
 
-		if (systemIniFilename[0] != '/')
-		{
-			systemIniFilename = pwd + "/" + systemIniFilename;
-		}
-	}
+		//if (systemIniFilename[0] != '/')
+		//{
+			//systemIniFilename = pwd + "/" + systemIniFilename;
+		//}
+	//}
 
 	DEBUG("== Loading device model file '"<<deviceIniFilename<<"' == ");
 	IniReader::ReadIniFile(deviceIniFilename, false);
@@ -293,12 +293,18 @@ void MultiChannelMemorySystem::InitOutputFiles(string traceFilename)
 	}
 #ifdef LOG_OUTPUT
 	string dramsimLogFilename("dramsim");
+	char *dramsimLogDir = getenv("SIM_LOG_DIR");
 	if (sim_description != NULL)
 	{
 		dramsimLogFilename += "."+sim_description_str; 
 	}
 	
 	dramsimLogFilename = FilenameWithNumberSuffix(dramsimLogFilename, ".log"); 
+
+	if (dramsimLogDir)
+  {
+    dramsimLogFilename = dramsimLogDir + dramsimLogFilename;
+  }
 
 	dramsim_log.open(dramsimLogFilename.c_str(), ios_base::out | ios_base::trunc );
 
